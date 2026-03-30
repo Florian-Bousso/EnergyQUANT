@@ -2,9 +2,9 @@
 
 ## ✅ Terminé
 - [x] Étape 1 : Structure du projet + GitHub
+- [ ] Étape 2 : Connexion API ENTSO-E + fetch prix spot day-ahead
 
 ## 🔄 En cours
-- [ ] Étape 2 : Connexion API ENTSO-E + fetch prix spot day-ahead
 
 ## 📋 À faire
 - [ ] Étape 3 : Calcul des spreads (spark spread, dark spread)
