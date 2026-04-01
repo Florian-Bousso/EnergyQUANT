@@ -66,8 +66,8 @@ period_days = {"7 days": 7, "30 days": 30, "90 days": 90}[period_label]
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("Market assumptions")
-gas_price = st.sidebar.slider("Gas (EUR/MWh)", min_value=10, max_value=100, value=30)
-coal_price = st.sidebar.slider("Coal (EUR/MWh)", min_value=5, max_value=50, value=12)
+gas_price = st.sidebar.slider("Gas (EUR/MWh)", min_value=10, max_value=150, value=45)
+coal_price_tonne = st.sidebar.slider("Coal (EUR/tonne)", min_value=50, max_value=300, value=110)
 carbon_price = st.sidebar.slider("Carbon EUA (EUR/tCO2)", min_value=10, max_value=120, value=65)
 
 # ---------------------------------------------------------------------------
@@ -159,10 +159,15 @@ st.latex(r"\text{Spark Spread} = P_{elec} - \frac{P_{gas}}{\eta_{gas}}, \quad \e
 st.latex(r"\text{Dark Spread} = P_{elec} - \frac{P_{coal}}{\eta_{coal}}, \quad \eta_{coal} = 0.35")
 st.latex(r"\text{Clean Spark Spread} = \text{Spark Spread} - P_{CO_2} \times EF, \quad EF = 0.202 \text{ tCO}_2/\text{MWh}")
 
-power_price = float(prices.iloc[-1])
+power_price = float(prices.mean())
 spark = compute_spark_spread(power_price, gas_price)
-dark = compute_dark_spread(power_price, coal_price)
+dark = compute_dark_spread(power_price, coal_price_tonne, coal_unit="EUR/tonne")
 clean_spark = compute_clean_spark_spread(power_price, gas_price, carbon_price)
+
+st.caption(
+    f"Power price used: {power_price:.1f} EUR/MWh (mean over selected period) — "
+    f"Coal: {coal_price_tonne} EUR/tonne = {coal_price_tonne / 8.14:.1f} EUR/MWh"
+)
 
 spread_names = ["Spark spread", "Dark spread", "Clean spark spread"]
 spread_values = [spark, dark, clean_spark]
