@@ -160,8 +160,9 @@ st.latex(r"\text{Dark Spread} = P_{elec} - \frac{P_{coal}}{\eta_{coal}}, \quad \
 st.latex(r"\text{Clean Spark Spread} = \text{Spark Spread} - P_{CO_2} \times EF, \quad EF = 0.202 \text{ tCO}_2/\text{MWh}")
 
 power_price = float(prices.mean())
+coal_price_mwh = coal_price_tonne / 8.14  # EUR/tonne → EUR/MWh (8.14 MWh/tonne)
 spark = compute_spark_spread(power_price, gas_price)
-dark = compute_dark_spread(power_price, coal_price_tonne, coal_unit="EUR/tonne")
+dark = compute_dark_spread(power_price, coal_price_mwh)
 clean_spark = compute_clean_spark_spread(power_price, gas_price, carbon_price)
 
 st.caption(
