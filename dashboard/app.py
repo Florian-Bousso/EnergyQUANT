@@ -76,10 +76,32 @@ carbon_price = st.sidebar.slider("Carbon EUA (EUR/tCO2)", min_value=10, max_valu
 st.title("EnergyQuant")
 st.caption("Florian Bousso")
 st.markdown(
-    "Quantitative analysis tool for European energy markets. "
-    "Real-time ENTSO-E data — France day-ahead."
+    "Quantitative analysis tool for the French electricity market. "
+    "Real-time ENTSO-E day-ahead prices, spread analysis, "
+    "risk metrics and price forecasting."
 )
-st.markdown("---")
+_btn = (
+    "background-color: #f0f2f6;"
+    "color: #262730;"
+    "padding: 8px 20px;"
+    "border-radius: 8px;"
+    "text-decoration: none;"
+    "font-weight: 500;"
+    "font-size: 14px;"
+    "border: 1px solid #d0d3da;"
+)
+st.markdown(
+    f"""
+    <div style="display: flex; gap: 12px; justify-content: center; margin: 10px 0;">
+      <a href="#day-ahead-spot-prices-france" style="{_btn}">Day-ahead Prices</a>
+      <a href="#spread-analysis" style="{_btn}">Spread Analysis</a>
+      <a href="#risk-metrics" style="{_btn}">Risk Metrics</a>
+      <a href="#price-forecast-j-1-to-j-7-prophet" style="{_btn}">Price Forecast</a>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+st.divider()
 
 # ---------------------------------------------------------------------------
 # Data loading
@@ -133,6 +155,9 @@ st.markdown(
     "The spark spread applies to gas-fired plants, the dark spread to coal plants. "
     "The clean spark spread incorporates the cost of carbon allowances (EUA)."
 )
+st.latex(r"\text{Spark Spread} = P_{elec} - \frac{P_{gas}}{\eta_{gas}}, \quad \eta_{gas} = 0.49")
+st.latex(r"\text{Dark Spread} = P_{elec} - \frac{P_{coal}}{\eta_{coal}}, \quad \eta_{coal} = 0.35")
+st.latex(r"\text{Clean Spark Spread} = \text{Spark Spread} - P_{CO_2} \times EF, \quad EF = 0.202 \text{ tCO}_2/\text{MWh}")
 
 power_price = float(prices.iloc[-1])
 spark = compute_spark_spread(power_price, gas_price)
@@ -160,15 +185,6 @@ fig_spreads.update_layout(
 )
 st.plotly_chart(fig_spreads, use_container_width=True)
 
-with st.expander("Spread definitions"):
-    st.markdown(
-        """
-        - Spark spread: `power - gas / 0.49` — theoretical margin of a gas-fired plant (CCGT)
-        - Dark spread: `power - coal / 0.35` — theoretical margin of a coal-fired plant
-        - Clean spark spread: spark spread minus the cost of CO2 allowances (EUA x 0.202 tCO2/MWh)
-        """
-    )
-
 st.markdown("---")
 
 # ---------------------------------------------------------------------------
@@ -177,10 +193,22 @@ st.markdown("---")
 st.header("Risk metrics")
 
 st.markdown(
-    "Volatility is expressed as the standard deviation of daily average prices. "
-    "The 95% VaR represents the maximum probable loss on a 1 MWh position "
-    "in 95% of cases over the analysis period."
+    "**Volatility (daily std)** — Standard deviation of daily average prices over the analysis "
+    "period. Measures the typical price dispersion around the mean. Expressed in EUR/MWh.\n\n"
+    "**VaR 95%** (Value at Risk) — Maximum probable price variation on a 1 MWh position that "
+    "will not be exceeded in 95% of cases. Computed on raw 15-minute price levels over the "
+    "analysis period. A VaR of X EUR/MWh means that in 95% of periods, the price will not "
+    "drop by more than X EUR/MWh.\n\n"
+    "**CVaR 95%** (Conditional Value at Risk / Expected Shortfall) — Average price variation "
+    "in the worst 5% of cases, i.e. when the loss exceeds the VaR threshold. Always greater "
+    "than VaR and gives a better picture of tail risk.\n\n"
+    "**Skewness** — Measures the asymmetry of the price distribution. A positive skew means "
+    "extreme upward price spikes are more frequent than downward ones, which is typical of "
+    "electricity markets (scarcity events, cold snaps)."
 )
+st.latex(r"\sigma = \sqrt{\frac{1}{N}\sum_{t=1}^{N}(P_t - \bar{P})^2}")
+st.latex(r"\text{VaR}_{95\%} = -\text{Quantile}_{5\%}(\Delta P_t)")
+st.latex(r"\text{CVaR}_{95\%} = -\mathbb{E}[\Delta P_t \mid \Delta P_t < -\text{VaR}_{95\%}]")
 
 with st.spinner("Computing risk metrics..."):
     risk = risk_summary(prices)
@@ -188,13 +216,18 @@ with st.spinner("Computing risk metrics..."):
 def _fmt(val, decimals=2, unit=""):
     return f"{val:.{decimals}f}{unit}" if val is not None else "n/a"
 
+vol = risk["volatility_eur_mwh"]
+mean_price = risk["mean_price"]
+cv = (vol / mean_price * 100) if (vol is not None and mean_price) else None
+
 col_v, col_var, col_cvar, col_skew = st.columns(4)
 col_v.metric(
     "Volatility (daily std)",
-    _fmt(risk["volatility_eur_mwh"], 1, " EUR/MWh"),
-    delta=_fmt(risk["volatility_pct"], 1, " %"),
+    _fmt(vol, 1, " EUR/MWh"),
+    delta=f"CV: {cv:.1f}%" if cv is not None else "n/a",
     delta_color="off",
 )
+col_v.caption("CV = volatility / mean price — relative price dispersion")
 col_var.metric("VaR 95%", _fmt(risk["var_95_eur_mwh"], 2, " EUR/MWh"))
 col_cvar.metric("CVaR 95%", _fmt(risk["cvar_95_eur_mwh"], 2, " EUR/MWh"))
 col_skew.metric("Skewness", _fmt(risk["skewness"], 3))
@@ -208,8 +241,11 @@ st.header("Price Forecast J+1 to J+7 (Prophet)")
 
 st.markdown(
     "Forecasts generated by the Prophet model (Meta) trained on the last 90 days "
-    "of daily prices. The model captures the weekly seasonality of electricity markets."
+    "of daily prices. The model captures the weekly seasonality of electricity markets. "
+    "Prophet decomposes the time series as y(t) = g(t) + s(t) + e(t), where g(t) is the "
+    "trend (flat for electricity), s(t) the weekly seasonality, and e(t) the error term."
 )
+st.latex(r"y(t) = g(t) + s(t) + \epsilon(t)")
 
 with st.spinner("Training Prophet model..."):
     forecast_df = load_forecast(90)
@@ -232,7 +268,7 @@ st.dataframe(
 )
 
 # Chart: forecast + recent history
-daily_hist = prices.resample("D").mean().tail(30)
+daily_hist = prices.resample("D").mean().tail(period_days)
 
 future_dates = [pd.Timestamp(d) for d in summary]
 future_yhat  = [v["price"] for v in summary.values()]

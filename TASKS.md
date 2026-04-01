@@ -13,8 +13,3 @@
 
 
 ## 📋 À faire
-
-## 📌 Règles du projet
-- 1 tâche = 1 prompt Claude Code = 1 commit Git
-- Convention commits : feat / fix / chore / docs / test
-- Toujours tester avant de committer
