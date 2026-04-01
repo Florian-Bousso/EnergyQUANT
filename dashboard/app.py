@@ -215,6 +215,8 @@ st.markdown(
 st.latex(r"\sigma = \sqrt{\frac{1}{N}\sum_{t=1}^{N}(P_t - \bar{P})^2}")
 st.latex(r"\text{VaR}_{95\%} = -\text{Quantile}_{5\%}(\Delta P_t)")
 st.latex(r"\text{CVaR}_{95\%} = -\mathbb{E}[\Delta P_t \mid \Delta P_t < -\text{VaR}_{95\%}]")
+st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("<br>", unsafe_allow_html=True)
 
 with st.spinner("Computing risk metrics..."):
     risk = risk_summary(prices)
