@@ -45,10 +45,14 @@ def compute_spark_spread(
     return power_price - (gas_price / efficiency)
 
 
+COAL_THERMAL_CONTENT = 8.14  # MWh/tonne — pouvoir calorifique standard du charbon ARA
+
+
 def compute_dark_spread(
     power_price: Numeric,
     coal_price: Numeric,
     efficiency: float = 0.35,
+    coal_unit: str = "EUR/MWh",
 ) -> Numeric:
     """
     Calcule le dark spread entre l'électricité et le charbon.
@@ -57,23 +61,35 @@ def compute_dark_spread(
     c'est la différence entre le prix de l'électricité produite et le coût
     du charbon nécessaire pour la produire, compte tenu du rendement thermique.
 
-    Formule : dark_spread = power_price - (coal_price / efficiency)
+    Formule : dark_spread = power_price - (coal_price_mwh / efficiency)
+
+    Le charbon est coté en EUR/tonne sur les marchés physiques (ARA). La
+    conversion en EUR/MWh est effectuée en divisant par le pouvoir calorifique
+    standard du charbon vapeur (8.14 MWh/tonne).
 
     Paramètres
     ----------
     power_price : float ou pd.Series
         Prix de l'électricité en EUR/MWh.
     coal_price : float ou pd.Series
-        Prix du charbon en EUR/MWh (base thermique).
+        Prix du charbon, dans l'unité spécifiée par coal_unit.
     efficiency : float
         Rendement thermique de la centrale à charbon (défaut : 0.35, soit 35 %).
+    coal_unit : str
+        Unité du prix du charbon fourni. Valeurs acceptées :
+        - "EUR/MWh"   : aucune conversion (défaut)
+        - "EUR/tonne" : convertit via coal_price / 8.14 MWh/tonne
 
     Retourne
     --------
     float ou pd.Series
         Dark spread en EUR/MWh, même type que les entrées.
     """
-    return power_price - (coal_price / efficiency)
+    if coal_unit == "EUR/tonne":
+        coal_price_mwh = coal_price / COAL_THERMAL_CONTENT
+    else:
+        coal_price_mwh = coal_price
+    return power_price - (coal_price_mwh / efficiency)
 
 
 def compute_clean_spark_spread(
@@ -153,21 +169,21 @@ if __name__ == "__main__":
     n = 168  # une semaine horaire
 
     power = pd.Series(60 + rng.normal(0, 8, n), name="power_eur_mwh")
-    gas = pd.Series(30 + rng.normal(0, 3, n), name="gas_eur_mwh")
-    coal = pd.Series(12 + rng.normal(0, 1.5, n), name="coal_eur_mwh")
+    gas = pd.Series(45 + rng.normal(0, 3, n), name="gas_eur_mwh")        # TTF EUR/MWh
+    coal = pd.Series(110 + rng.normal(0, 5, n), name="coal_eur_tonne")   # ARA EUR/tonne
     carbon = pd.Series(65 + rng.normal(0, 4, n), name="carbon_eur_tco2")
 
     spark = compute_spark_spread(power, gas)
-    dark = compute_dark_spread(power, coal)
+    dark = compute_dark_spread(power, coal, coal_unit="EUR/tonne")
     clean_spark = compute_clean_spark_spread(power, gas, carbon)
 
     print("=" * 50)
     print("Hypothèses de marché (moyennes)")
     print("=" * 50)
     print(f"  Electricité : {power.mean():.2f} EUR/MWh")
-    print(f"  Gaz         : {gas.mean():.2f} EUR/MWh")
-    print(f"  Charbon     : {coal.mean():.2f} EUR/MWh")
-    print(f"  Carbone     : {carbon.mean():.2f} EUR/tCO2")
+    print(f"  Gaz (TTF)   : {gas.mean():.2f} EUR/MWh")
+    print(f"  Charbon ARA : {coal.mean():.2f} EUR/tonne ({coal.mean() / COAL_THERMAL_CONTENT:.2f} EUR/MWh)")
+    print(f"  Carbone EUA : {carbon.mean():.2f} EUR/tCO2")
 
     for label, series in [("Spark spread", spark), ("Dark spread", dark), ("Clean spark spread", clean_spark)]:
         stats = spread_summary(series)
