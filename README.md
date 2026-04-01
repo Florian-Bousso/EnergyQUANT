@@ -1,45 +1,84 @@
 # EnergyQuant
 
-Outil d'analyse et de forecasting des marchés de l'énergie européens.
+![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)
+![Built with Claude Code](https://img.shields.io/badge/Built%20with-Claude%20Code-blueviolet?logo=anthropic&logoColor=white)
 
-## Fonctionnalités
+## Overview
 
-- **Récupération de données** : prix spot et futures (électricité, gaz, charbon, CO2)
-- **Analyse des spreads** : spark spread, dark spread, clean spreads, spreads géographiques
-- **Volatilité** : volatilité historique, GARCH, cônes de volatilité
-- **Risque** : VaR, CVaR, drawdown, stress tests
-- **Forecasting** : modèle Prophet avec régresseurs externes
-- **Dashboard** : visualisation interactive des marchés et des prévisions
+EnergyQuant is a quantitative analysis tool for European energy markets, built for analysts and energy traders who need fast, reliable market intelligence. It pulls real-time day-ahead price data directly from the ENTSO-E Transparency Platform, computes financial risk metrics (volatility, VaR, CVaR), and generates 7-day price forecasts using Meta's Prophet model. Results are exposed through an interactive Streamlit dashboard designed for rapid exploratory analysis.
 
-## Structure
+## Features
+
+- Real-time ENTSO-E day-ahead price data (France)
+- Spark, dark and clean spark spread calculations with adjustable market assumptions
+- Risk metrics: daily volatility, VaR 95%, CVaR 95%, skewness
+- 7-day price forecasting with Prophet (weekly seasonality, flat growth)
+- Interactive Streamlit dashboard with Plotly charts
+
+## Project Structure
 
 ```
 EnergyQuant/
 ├── data/
-│   ├── fetcher.py       # Acquisition des données de marché
-│   └── cleaner.py       # Nettoyage et normalisation
+│   ├── fetcher.py            # ENTSO-E API client — fetch day-ahead prices
+│   └── cleaner.py            # Data cleaning and normalisation (stub)
 ├── analysis/
-│   ├── spreads.py       # Calcul des spreads
-│   ├── volatility.py    # Analyse de volatilité
-│   └── risk.py          # Métriques de risque
+│   ├── spreads.py            # Spark, dark and clean spark spread calculations
+│   ├── volatility.py         # Rolling volatility and GARCH (stub)
+│   └── risk.py               # VaR, CVaR, daily volatility, skewness
 ├── forecasting/
-│   ├── prophet_model.py # Modèle Prophet
-│   └── evaluator.py     # Évaluation des prévisions
+│   ├── prophet_model.py      # Prophet model — prepare, train, forecast
+│   └── evaluator.py          # Forecast evaluation and backtesting (stub)
 ├── dashboard/
-│   └── app.py           # Dashboard interactif
+│   └── app.py                # Streamlit interactive dashboard
 ├── tests/
-├── cli.py               # Interface CLI
-└── requirements.txt
+│   └── __init__.py
+├── cli.py                    # Command-line interface (stub)
+├── requirements.txt
+├── TASKS.md
+└── .gitignore
 ```
 
 ## Installation
 
 ```bash
+# Clone the repository
+git clone https://github.com/your-username/EnergyQuant.git
+cd EnergyQuant
+
+# Install dependencies
 pip install -r requirements.txt
+
+# Configure your ENTSO-E API key
+# Get your key at: https://transparency.entsoe.eu → My Account → Web API Security Token
+echo "ENTSOE_API_KEY=your_api_key_here" > .env
 ```
 
 ## Usage
 
+Launch the dashboard:
+
 ```bash
-python cli.py --help
+streamlit run dashboard/app.py
 ```
+
+The sidebar lets you select the analysis period (7, 30 or 90 days) and adjust market assumptions (gas, coal and carbon prices) used to compute spreads. All data is cached for one hour to avoid redundant API calls.
+
+## Tech Stack
+
+| Component | Library |
+|---|---|
+| Data source | ENTSO-E Transparency Platform |
+| API client | entsoe-py |
+| Forecasting | Prophet (Meta) |
+| Dashboard | Streamlit |
+| Charts | Plotly |
+| Data processing | pandas, NumPy, SciPy |
+
+## Author
+
+**Florian Bousso** — Energy engineer & markets analyst
+
+## Built with
+
+Built with [Claude Code](https://claude.ai/code) by Anthropic.
