@@ -8,10 +8,10 @@
 - [x] Étape 5 : Forecasting des prix (Prophet)
 - [x] Étape 6 : Dashboard Streamlit interactif
 - [x] Étape 7 : README pro + déploiement Streamlit Cloud
+- [x] Étape 8 : Saisonnalité des prix (heatmap heure x jour)
 
 ## En cours
-- [ ] Étape 8 : Saisonnalité des prix (heatmap heure x jour)
+- [ ] Étape 9 : Corrélations inter-marchés (heatmap électricité/gaz/charbon/carbone)
 
 ## À faire
-- [ ] Étape 9 : Corrélations inter-marchés (heatmap électricité/gaz/charbon/carbone)
 - [ ] Étape 10 : Merit Order simplifié
