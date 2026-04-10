@@ -9,9 +9,9 @@
 - [x] Étape 6 : Dashboard Streamlit interactif
 - [x] Étape 7 : README pro + déploiement Streamlit Cloud
 - [x] Étape 8 : Saisonnalité des prix (heatmap heure x jour)
+- [x] Étape 9 : Corrélations inter-marchés 
 
 ## En cours
-- [ ] Étape 9 : Corrélations inter-marchés (heatmap électricité/gaz/charbon/carbone)
+- [ ] Étape 10 : Merit Order simplifié
 
 ## À faire
-- [ ] Étape 10 : Merit Order simplifié
