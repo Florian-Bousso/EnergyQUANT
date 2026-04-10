@@ -17,6 +17,11 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from analysis.risk import risk_summary
+from analysis.seasonality import (
+    compute_hourly_profile,
+    compute_weekly_heatmap,
+    seasonality_summary,
+)
 from analysis.spreads import (
     compute_clean_spark_spread,
     compute_dark_spread,
@@ -94,6 +99,7 @@ st.markdown(
     f"""
     <div style="display: flex; gap: 12px; justify-content: center; margin: 10px 0;">
       <a href="#day-ahead-spot-prices-france" style="{_btn}">Day-ahead Prices</a>
+      <a href="#price-seasonality" style="{_btn}">Price Seasonality</a>
       <a href="#spread-analysis" style="{_btn}">Spread Analysis</a>
       <a href="#risk-metrics" style="{_btn}">Risk Metrics</a>
       <a href="#price-forecast-j-1-to-j-7-prophet" style="{_btn}">Price Forecast</a>
@@ -146,7 +152,77 @@ st.plotly_chart(fig_prices, use_container_width=True)
 st.markdown("---")
 
 # ---------------------------------------------------------------------------
-# Section 2 : Spread analysis
+# Section 2 : Price seasonality
+# ---------------------------------------------------------------------------
+st.header("Price Seasonality")
+
+st.markdown(
+    "Electricity prices follow strong intraday and weekly patterns. "
+    "Peak hours (evening) are systematically more expensive than off-peak hours, "
+    "and weekdays show higher prices than weekends due to industrial demand patterns. "
+    "The peak-to-mean ratio measures how much more expensive the peak hour is compared "
+    "to the overall average price — a ratio of 2.0 means the peak hour is twice the average price."
+)
+
+season = seasonality_summary(prices)
+profile = compute_hourly_profile(prices)
+heatmap_df = compute_weekly_heatmap(prices)
+
+sc1, sc2, sc3, sc4 = st.columns(4)
+sc1.metric("Peak hour",     f"{season['peak_hour']:02d}:00")
+sc2.metric("Off-peak hour", f"{season['offpeak_hour']:02d}:00")
+sc3.metric("Peak day",      season["peak_day"])
+sc4.metric(
+    "Peak-to-mean ratio",
+    f"{season['peak_to_mean_ratio']:.3f}" if season["peak_to_mean_ratio"] is not None else "n/a",
+)
+
+col_heat, col_bar = st.columns(2)
+
+with col_heat:
+    fig_heat = go.Figure(go.Heatmap(
+        z=heatmap_df.values,
+        x=heatmap_df.columns.tolist(),
+        y=heatmap_df.index.tolist(),
+        colorscale="RdYlGn_r",
+        colorbar=dict(title="EUR/MWh"),
+        hovertemplate="Hour %{y}:00 — %{x}<br>%{z:.1f} EUR/MWh<extra></extra>",
+    ))
+    fig_heat.update_layout(
+        title="Price heatmap (EUR/MWh)",
+        xaxis_title="Day of week",
+        yaxis_title="Hour of day",
+        margin=dict(t=40, b=40),
+        height=380,
+    )
+    st.plotly_chart(fig_heat, use_container_width=True)
+
+with col_bar:
+    mean_vals = profile["mean"].values
+    fig_hourly = go.Figure(go.Bar(
+        x=profile.index.tolist(),
+        y=mean_vals,
+        marker=dict(
+            color=mean_vals,
+            colorscale="Blues",
+            showscale=False,
+        ),
+        hovertemplate="Hour %{x}:00<br>Mean: %{y:.1f} EUR/MWh<extra></extra>",
+    ))
+    fig_hourly.update_layout(
+        title="Average price by hour of day (EUR/MWh)",
+        xaxis_title="Hour of day",
+        yaxis_title="EUR/MWh",
+        xaxis=dict(tickmode="linear", tick0=0, dtick=2),
+        margin=dict(t=40, b=40),
+        height=380,
+    )
+    st.plotly_chart(fig_hourly, use_container_width=True)
+
+st.markdown("---")
+
+# ---------------------------------------------------------------------------
+# Section 3 : Spread analysis
 # ---------------------------------------------------------------------------
 st.header("Spread analysis")
 
