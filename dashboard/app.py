@@ -86,30 +86,22 @@ period_days = {"7 days": 7, "30 days": 30, "90 days": 90}[period_label]
 st.sidebar.markdown("---")
 st.sidebar.subheader("Market assumptions")
 
-_ttf_df = load_commodity_df(90)
+try:
+    _ttf_df = load_commodity_df(90)
+except Exception:
+    _ttf_df = pd.DataFrame()
+
 _gas_default = int(round(_ttf_df["gas_ttf"].iloc[-1])) if not _ttf_df.empty and "gas_ttf" in _ttf_df.columns else 45
 _gas_default = max(10, min(150, _gas_default))  # clamp to slider range
 
 _carbon_default = int(round(_ttf_df["carbon_eua"].iloc[-1])) if not _ttf_df.empty and "carbon_eua" in _ttf_df.columns else 65
 _carbon_default = max(10, min(120, _carbon_default))
 
-# Compute demand default from last available spot price using default market assumptions
-_prices_for_default = load_prices(period_days)
-_last_price = float(_prices_for_default.iloc[-1])
-_mo_for_default = get_merit_order(_gas_default, 110, _carbon_default)
-_demand_default = 60
-for _, _row in _mo_for_default.iterrows():
-    if _row["marginal_cost"] >= _last_price:
-        _demand_default = int(round(_row["cumulative_capacity"]))
-        _demand_default = max(20, min(100, _demand_default))
-        break
-
 # Initialise session_state keys on first run
 if "gas_price"    not in st.session_state: st.session_state["gas_price"]    = _gas_default
 if "coal_price"   not in st.session_state: st.session_state["coal_price"]   = 130
 if "carbon_price" not in st.session_state: st.session_state["carbon_price"] = _carbon_default
-if "demand"       not in st.session_state: st.session_state["demand"]       = _demand_default
-st.session_state["demand_default"] = _demand_default  # always refresh (spot price changes)
+if "demand"       not in st.session_state: st.session_state["demand"]       = 60
 
 # Callback runs before widgets are re-instantiated — avoids the
 # "cannot modify after instantiation" Streamlit constraint
@@ -117,7 +109,7 @@ def _reset_defaults():
     st.session_state["gas_price"]    = _gas_default
     st.session_state["coal_price"]   = 130
     st.session_state["carbon_price"] = _carbon_default
-    st.session_state["demand"]       = st.session_state["demand_default"]
+    st.session_state["demand"]       = 60
 
 
 gas_price = st.sidebar.slider("Gas (EUR/MWh)", min_value=10, max_value=150, key="gas_price")
@@ -126,7 +118,7 @@ coal_price_tonne = st.sidebar.slider("Coal (EUR/tonne)", min_value=50, max_value
 carbon_price = st.sidebar.slider("Carbon EUA (EUR/tCO2)", min_value=10, max_value=120, key="carbon_price")
 st.sidebar.caption("Default: last EUA closing price")
 demand_gw = st.sidebar.slider("Demand (GW)", min_value=20, max_value=100, step=1, key="demand")
-st.sidebar.caption(f"Default: estimated from last spot price ({_last_price:.1f} EUR/MWh)")
+st.sidebar.caption("Default: 60 GW — approximate average French daytime demand")
 st.sidebar.button("Reset to defaults", on_click=_reset_defaults)
 
 # ---------------------------------------------------------------------------
@@ -169,7 +161,14 @@ st.divider()
 # Data loading
 # ---------------------------------------------------------------------------
 with st.spinner("Loading ENTSO-E data..."):
-    prices = load_prices(period_days)
+    try:
+        prices = load_prices(period_days)
+    except Exception as e:
+        st.error(
+            f"ENTSO-E API unavailable: {e}\n\n"
+            "The Transparency Platform may be temporarily down. Please try again in a few minutes."
+        )
+        st.stop()
 
 # ---------------------------------------------------------------------------
 # Section 1 : Day-ahead spot prices
