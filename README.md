@@ -1,84 +1,80 @@
 # EnergyQuant
 
-![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.x-blue?logo=python&logoColor=white)
 ![Built with Claude Code](https://img.shields.io/badge/Built%20with-Claude%20Code-blueviolet?logo=anthropic&logoColor=white)
 
 ## Overview
 
-EnergyQuant is a quantitative analysis tool for European energy markets, built for analysts and energy traders who need fast, reliable market intelligence. It pulls real-time day-ahead price data directly from the ENTSO-E Transparency Platform, computes financial risk metrics (volatility, VaR, CVaR), and generates 7-day price forecasts using Meta's Prophet model. Results are exposed through an interactive Streamlit dashboard designed for rapid exploratory analysis.
+Quantitative analysis tool for the French electricity market. EnergyQuant pulls real-time data from multiple sources — ENTSO-E, Yahoo Finance, RTE — and exposes it through an interactive Streamlit dashboard deployed publicly. It covers spot price analysis, spread modelling, risk metrics, cross-commodity correlations, price forecasting and a dynamic merit order model.
+
+## Live Dashboard
+
+[energyquant-florianb.streamlit.app](https://energyquant-florianb.streamlit.app)
 
 ## Features
 
-- Real-time ENTSO-E day-ahead price data (France)
-- Spark, dark and clean spark spread calculations with adjustable market assumptions
-- Risk metrics: daily volatility, VaR 95%, CVaR 95%, skewness
-- 7-day price forecasting with Prophet (weekly seasonality, flat growth)
-- Interactive Streamlit dashboard with Plotly charts
+1. **Real-time day-ahead spot prices** — France hourly prices via the ENTSO-E Transparency Platform API
+2. **Price seasonality analysis** — hourly profile, hour × weekday heatmap, peak-to-mean ratio
+3. **Spread analysis** — spark spread, dark spread and clean spark spread from live commodity prices
+4. **Market correlations** — Pearson correlation matrix between Power, TTF Gas and EUA Carbon (Yahoo Finance)
+5. **Risk metrics** — daily volatility, VaR 95%, CVaR 95%, skewness and kurtosis
+6. **7-day price forecasting** — Prophet model (Meta) with flat trend and weekly seasonality
+7. **French merit order** — dynamic demand slider, marginal technology identification, RTE installed capacity data (end of 2025)
 
 ## Project Structure
 
 ```
-EnergyQuant/
-├── data/
-│   ├── fetcher.py            # ENTSO-E API client — fetch day-ahead prices
-│   └── cleaner.py            # Data cleaning and normalisation (stub)
-├── analysis/
-│   ├── spreads.py            # Spark, dark and clean spark spread calculations
-│   ├── volatility.py         # Rolling volatility and GARCH (stub)
-│   └── risk.py               # VaR, CVaR, daily volatility, skewness
-├── forecasting/
-│   ├── prophet_model.py      # Prophet model — prepare, train, forecast
-│   └── evaluator.py          # Forecast evaluation and backtesting (stub)
-├── dashboard/
-│   └── app.py                # Streamlit interactive dashboard
-├── tests/
-│   └── __init__.py
-├── cli.py                    # Command-line interface (stub)
-├── requirements.txt
-├── TASKS.md
-└── .gitignore
+data/
+  fetcher.py              ENTSO-E API client — fetches day-ahead prices for any bidding zone
+
+analysis/
+  spreads.py              Spark spread, dark spread, clean spark spread calculations
+  risk.py                 Volatility, VaR 95%, CVaR 95%, skewness, kurtosis
+  seasonality.py          Hourly profile, hour × weekday heatmap, seasonality summary
+  correlations.py         Cross-commodity correlation (Power / TTF Gas / EUA Carbon)
+  merit_order.py          French merit order stack with RTE capacity data (end of 2025)
+
+forecasting/
+  prophet_model.py        Prophet model — train, forecast 7 days, flat trend + weekly seasonality
+
+dashboard/
+  app.py                  Streamlit dashboard — all sections, sidebar controls, interactive charts
 ```
+
+## Data Sources
+
+- **ENTSO-E Transparency Platform** — day-ahead electricity prices (requires API key)
+- **Yahoo Finance** via `yfinance` — TTF natural gas front-month futures, EUA carbon allowances
+- **RTE** — French installed generation capacity, end of 2025
 
 ## Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-username/EnergyQuant.git
+git clone https://github.com/florianb/EnergyQuant.git
 cd EnergyQuant
-
-# Install dependencies
 pip install -r requirements.txt
-
-# Configure your ENTSO-E API key
-# Get your key at: https://transparency.entsoe.eu → My Account → Web API Security Token
-echo "ENTSOE_API_KEY=your_api_key_here" > .env
 ```
 
-## Usage
+Create a `.env` file at the project root:
 
-Launch the dashboard:
+```
+ENTSOE_API_KEY=your_api_key_here
+```
+
+Run the dashboard:
 
 ```bash
 streamlit run dashboard/app.py
 ```
 
-The sidebar lets you select the analysis period (7, 30 or 90 days) and adjust market assumptions (gas, coal and carbon prices) used to compute spreads. All data is cached for one hour to avoid redundant API calls.
-
 ## Tech Stack
 
-| Component | Library |
-|---|---|
-| Data source | ENTSO-E Transparency Platform |
-| API client | entsoe-py |
-| Forecasting | Prophet (Meta) |
-| Dashboard | Streamlit |
-| Charts | Plotly |
-| Data processing | pandas, NumPy, SciPy |
+Python · ENTSO-E API · yfinance · Prophet (Meta) · Streamlit · Plotly · pandas · scipy
 
 ## Author
 
-**Florian Bousso** — Energy engineer & markets analyst
+**Florian Bousso** — Energy & Markets Engineer
 
 ## Built with
 
-Built with [Claude Code](https://claude.ai/code) by Anthropic.
+[Claude Code](https://claude.ai/code) by Anthropic
