@@ -21,6 +21,7 @@ from analysis.correlations import (
     compute_correlation_matrix,
     correlation_summary,
 )
+from analysis.merit_order import CAPACITY_SOURCE, get_marginal_technology, get_merit_order
 from analysis.risk import risk_summary
 from analysis.seasonality import (
     compute_hourly_profile,
@@ -89,14 +90,44 @@ _ttf_df = load_commodity_df(90)
 _gas_default = int(round(_ttf_df["gas_ttf"].iloc[-1])) if not _ttf_df.empty and "gas_ttf" in _ttf_df.columns else 45
 _gas_default = max(10, min(150, _gas_default))  # clamp to slider range
 
-gas_price = st.sidebar.slider("Gas (EUR/MWh)", min_value=10, max_value=150, value=_gas_default)
-st.sidebar.caption("Default: last TTF closing price")
-coal_price_tonne = st.sidebar.slider("Coal (EUR/tonne)", min_value=50, max_value=300, value=110)
 _carbon_default = int(round(_ttf_df["carbon_eua"].iloc[-1])) if not _ttf_df.empty and "carbon_eua" in _ttf_df.columns else 65
 _carbon_default = max(10, min(120, _carbon_default))
 
-carbon_price = st.sidebar.slider("Carbon EUA (EUR/tCO2)", min_value=10, max_value=120, value=_carbon_default)
+# Compute demand default from last available spot price using default market assumptions
+_prices_for_default = load_prices(period_days)
+_last_price = float(_prices_for_default.iloc[-1])
+_mo_for_default = get_merit_order(_gas_default, 110, _carbon_default)
+_demand_default = 60
+for _, _row in _mo_for_default.iterrows():
+    if _row["marginal_cost"] >= _last_price:
+        _demand_default = int(round(_row["cumulative_capacity"]))
+        _demand_default = max(20, min(100, _demand_default))
+        break
+
+# Initialise session_state keys on first run
+if "gas_price"    not in st.session_state: st.session_state["gas_price"]    = _gas_default
+if "coal_price"   not in st.session_state: st.session_state["coal_price"]   = 130
+if "carbon_price" not in st.session_state: st.session_state["carbon_price"] = _carbon_default
+if "demand"       not in st.session_state: st.session_state["demand"]       = _demand_default
+st.session_state["demand_default"] = _demand_default  # always refresh (spot price changes)
+
+# Callback runs before widgets are re-instantiated — avoids the
+# "cannot modify after instantiation" Streamlit constraint
+def _reset_defaults():
+    st.session_state["gas_price"]    = _gas_default
+    st.session_state["coal_price"]   = 130
+    st.session_state["carbon_price"] = _carbon_default
+    st.session_state["demand"]       = st.session_state["demand_default"]
+
+
+gas_price = st.sidebar.slider("Gas (EUR/MWh)", min_value=10, max_value=150, key="gas_price")
+st.sidebar.caption("Default: last TTF closing price")
+coal_price_tonne = st.sidebar.slider("Coal (EUR/tonne)", min_value=50, max_value=300, key="coal_price")
+carbon_price = st.sidebar.slider("Carbon EUA (EUR/tCO2)", min_value=10, max_value=120, key="carbon_price")
 st.sidebar.caption("Default: last EUA closing price")
+demand_gw = st.sidebar.slider("Demand (GW)", min_value=20, max_value=100, step=1, key="demand")
+st.sidebar.caption(f"Default: estimated from last spot price ({_last_price:.1f} EUR/MWh)")
+st.sidebar.button("Reset to defaults", on_click=_reset_defaults)
 
 # ---------------------------------------------------------------------------
 # Header
@@ -125,6 +156,7 @@ st.markdown(
       <a href="#price-seasonality" style="{_btn}">Price Seasonality</a>
       <a href="#spread-analysis" style="{_btn}">Spread Analysis</a>
       <a href="#market-correlations" style="{_btn}">Market Correlations</a>
+      <a href="#merit-order" style="{_btn}">Merit Order</a>
       <a href="#risk-metrics" style="{_btn}">Risk Metrics</a>
       <a href="#price-forecast-j-1-to-j-7-prophet" style="{_btn}">Price Forecast</a>
     </div>
@@ -150,10 +182,19 @@ st.markdown(
 )
 
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("Average price", f"{prices.mean():.1f} EUR/MWh")
-col2.metric("Min price", f"{prices.min():.1f} EUR/MWh")
-col3.metric("Max price", f"{prices.max():.1f} EUR/MWh")
-col4.metric("Last price", f"{prices.iloc[-1]:.1f} EUR/MWh")
+_val_style = "font-size:28px; font-weight:600; margin:0"
+with col1:
+    st.caption("Average price")
+    st.markdown(f"<p style='{_val_style}'>{prices.mean():.1f} EUR/MWh</p>", unsafe_allow_html=True)
+with col2:
+    st.caption("Min price")
+    st.markdown(f"<p style='{_val_style}'>{prices.min():.1f} EUR/MWh</p>", unsafe_allow_html=True)
+with col3:
+    st.caption("Max price")
+    st.markdown(f"<p style='{_val_style}'>{prices.max():.1f} EUR/MWh</p>", unsafe_allow_html=True)
+with col4:
+    st.caption("Last price")
+    st.markdown(f"<p style='{_val_style}'>{prices.iloc[-1]:.1f} EUR/MWh</p>", unsafe_allow_html=True)
 
 fig_prices = go.Figure()
 fig_prices.add_trace(go.Scatter(
@@ -370,7 +411,136 @@ else:
 st.markdown("---")
 
 # ---------------------------------------------------------------------------
-# Section 4 : Risk metrics
+# Section 4 : Merit order
+# ---------------------------------------------------------------------------
+st.header("Merit Order")
+
+st.markdown(
+    "The merit order ranks power plants by short-run marginal cost (SRMC). "
+    "The market clearing price is set by the most expensive plant called "
+    "to meet demand — the marginal technology. "
+    "Drag the demand slider to see how the marginal technology changes. "
+    "Click 'Capacity assumptions' to view the underlying data."
+)
+
+mo_df = get_merit_order(gas_price, coal_price_tonne, carbon_price)
+marginal = get_marginal_technology(mo_df, demand_gw)
+
+with st.expander("Capacity assumptions"):
+    cap_table = mo_df[["technology", "installed_gw", "capacity_factor", "capacity_gw", "marginal_cost"]].copy()
+    cap_table["capacity_factor"] = (cap_table["capacity_factor"] * 100).round(0).astype(int)
+    cap_table.columns = [
+        "Technology",
+        "Installed (GW)",
+        "Capacity Factor (%)",
+        "Available (GW)",
+        "Marginal Cost (EUR/MWh)",
+    ]
+    st.dataframe(cap_table.set_index("Technology"), use_container_width=True)
+    st.caption("Source: " + CAPACITY_SOURCE)
+    st.caption(
+        "Capacity factors reflect average availability. "
+        "Renewable output is weather-dependent and varies significantly by season and time of day."
+    )
+
+    st.markdown("**Marginal cost assumptions**")
+    st.markdown(
+        "Supposed fixed marginal costs:\n"
+        "- **Wind / Solar**: 0 EUR/MWh — no fuel cost\n"
+        "- **Hydro run-of-river**: 5 EUR/MWh — O&M only\n"
+        "- **Nuclear**: 8 EUR/MWh — fuel + O&M\n"
+        "- **Hydro reservoir**: 10 EUR/MWh — water opportunity value\n"
+        "- **Oil**: 200 EUR/MWh — fuel oil + O&M"
+    )
+    _coal_srmc = round((coal_price_tonne / 8.14) / 0.35 + carbon_price * 0.34, 1)
+    _gas_srmc  = round(gas_price / 0.49 + carbon_price * 0.202, 1)
+    st.markdown(
+        "Market-linked marginal costs (computed from sidebar prices):\n"
+        f"- **Coal**: fuel cost (ARA coal price) + carbon cost (EUA) — "
+        f"Current value: **{_coal_srmc} EUR/MWh**\n"
+        f"- **Gas CCGT**: fuel cost (TTF gas price) + carbon cost (EUA) — "
+        f"Current value: **{_gas_srmc} EUR/MWh**"
+    )
+
+_tech_colors = {
+    "Wind onshore":       "#2ecc71",
+    "Wind offshore":      "#27ae60",
+    "Solar":              "#f39c12",
+    "Hydro run-of-river": "#3498db",
+    "Nuclear":            "#9b59b6",
+    "Hydro reservoir":    "#1a5276",
+    "Coal":               "#6d4c41",
+    "Gas CCGT":           "#e67e22",
+    "Oil":                "#7f8c8d",
+}
+
+# --- Merit order step chart ---
+fig_mo = go.Figure()
+for _, row in mo_df.iterrows():
+    x_start = row["cumulative_capacity"] - row["capacity_gw"]
+    x_end   = row["cumulative_capacity"]
+    color   = _tech_colors.get(row["technology"], "#aec7e8")
+    fig_mo.add_trace(go.Scatter(
+        x=[x_start, x_end],
+        y=[row["marginal_cost"], row["marginal_cost"]],
+        mode="lines",
+        name=row["technology"],
+        line=dict(color=color, width=6),
+        hovertemplate=(
+            f"<b>{row['technology']}</b><br>"
+            f"Capacity: {row['capacity_gw']:.0f} GW<br>"
+            f"SRMC: {row['marginal_cost']:.1f} EUR/MWh<extra></extra>"
+        ),
+    ))
+fig_mo.add_vline(x=demand_gw, line_dash="dot", line_color="red", line_width=2)
+fig_mo.add_annotation(
+    x=demand_gw,
+    y=marginal["marginal_cost"],
+    text=f"Demand: {demand_gw} GW",
+    showarrow=True,
+    arrowhead=2,
+    arrowcolor="red",
+    font=dict(color="red", size=12),
+    xanchor="left",
+    yanchor="bottom",
+    ax=20,
+    ay=-30,
+)
+fig_mo.add_trace(go.Scatter(
+    x=[demand_gw],
+    y=[marginal["marginal_cost"]],
+    mode="markers",
+    marker=dict(color="red", size=10, symbol="circle"),
+    name="Demand level",
+    showlegend=False,
+    hovertemplate=(
+        f"Demand: {demand_gw} GW<br>"
+        f"Marginal: {marginal['technology']}<br>"
+        f"SRMC: {marginal['marginal_cost']:.1f} EUR/MWh<extra></extra>"
+    ),
+))
+fig_mo.update_layout(
+    title="French Merit Order — Marginal cost curve",
+    xaxis_title="Cumulative capacity (GW)",
+    yaxis_title="Marginal cost (EUR/MWh)",
+    hovermode="closest",
+    margin=dict(t=80, b=40),
+    height=380,
+    legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="left", x=0),
+)
+st.plotly_chart(fig_mo, use_container_width=True)
+
+# --- Merit order metrics for selected demand ---
+moc1, moc2, moc3 = st.columns(3)
+moc1.metric("Marginal technology", marginal["technology"])
+moc2.metric("Marginal cost",       f"{marginal['marginal_cost']:.1f} EUR/MWh")
+moc3.metric("Spare margin",        f"{marginal['margin_gw']:.1f} GW")
+
+
+st.markdown("---")
+
+# ---------------------------------------------------------------------------
+# Section 5 : Risk metrics
 # ---------------------------------------------------------------------------
 st.header("Risk metrics")
 

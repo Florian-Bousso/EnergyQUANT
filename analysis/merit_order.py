@@ -10,18 +10,18 @@ Marginal cost formulas
 ----------------------
 Coal SRMC  = (coal_price_eur_tonne / 8.14) / 0.35  +  carbon_price * 0.34
 Gas CCGT   = gas_price / 0.49  +  carbon_price * 0.202
-Gas Peaker = gas_price / 0.38  +  carbon_price * 0.202
 
 where:
     8.14     : thermal content of coal (MWh/tonne)
     0.35     : coal plant thermal efficiency
     0.49     : CCGT thermal efficiency
-    0.38     : gas peaker thermal efficiency
     0.34     : coal emission factor (tCO2/MWh_elec)
     0.202    : gas emission factor (tCO2/MWh_elec)
 """
 
 import pandas as pd
+
+CAPACITY_SOURCE = "RTE — French installed capacity, end of 2025"
 
 
 def get_merit_order(
@@ -49,25 +49,28 @@ def get_merit_order(
     -------
     pd.DataFrame
         DataFrame with columns:
-        - technology         (str)   : technology name
-        - capacity_gw        (float) : installed capacity in GW
-        - marginal_cost      (float) : short-run marginal cost in EUR/MWh
-        - cumulative_capacity (float): cumulative capacity from cheapest, in GW
+        - technology          (str)   : technology name
+        - installed_gw        (float) : nameplate installed capacity in GW
+        - capacity_factor     (float) : average capacity factor (0–1)
+        - capacity_gw         (float) : available capacity (installed × CF) in GW
+        - marginal_cost       (float) : short-run marginal cost in EUR/MWh
+        - cumulative_capacity (float) : cumulative available capacity from cheapest, in GW
         Sorted by marginal_cost ascending.
     """
     coal_srmc = (coal_price_tonne / 8.14) / 0.35 + carbon_price * 0.34
     gas_ccgt_srmc = gas_price / 0.49 + carbon_price * 0.202
-    gas_peaker_srmc = gas_price / 0.38 + carbon_price * 0.202
 
     technologies = [
-        {"technology": "Wind",       "capacity_gw": 22, "marginal_cost": 0.0},
-        {"technology": "Solar",      "capacity_gw": 18, "marginal_cost": 0.0},
-        {"technology": "Hydro",      "capacity_gw": 25, "marginal_cost": 5.0},
-        {"technology": "Nuclear",    "capacity_gw": 45, "marginal_cost": 8.0},
-        {"technology": "Coal",       "capacity_gw":  1, "marginal_cost": round(coal_srmc, 2)},
-        {"technology": "Gas CCGT",   "capacity_gw": 10, "marginal_cost": round(gas_ccgt_srmc, 2)},
-        {"technology": "Gas Peaker", "capacity_gw":  5, "marginal_cost": round(gas_peaker_srmc, 2)},
-        {"technology": "Oil",        "capacity_gw":  3, "marginal_cost": 200.0},
+        # technology            installed_gw  capacity_factor  available_gw  marginal_cost
+        {"technology": "Nuclear",           "installed_gw": 63.0, "capacity_factor": 0.72, "capacity_gw": 45.4, "marginal_cost": 8.0},
+        {"technology": "Hydro run-of-river","installed_gw": 12.9, "capacity_factor": 0.45, "capacity_gw":  5.8, "marginal_cost": 5.0},
+        {"technology": "Hydro reservoir",   "installed_gw": 12.8, "capacity_factor": 0.75, "capacity_gw":  9.6, "marginal_cost": 10.0},
+        {"technology": "Wind onshore",      "installed_gw": 23.9, "capacity_factor": 0.25, "capacity_gw":  6.0, "marginal_cost": 0.0},
+        {"technology": "Wind offshore",     "installed_gw":  1.9, "capacity_factor": 0.35, "capacity_gw":  0.7, "marginal_cost": 0.0},
+        {"technology": "Solar",             "installed_gw": 30.4, "capacity_factor": 0.15, "capacity_gw":  4.6, "marginal_cost": 0.0},
+        {"technology": "Coal",              "installed_gw":  1.8, "capacity_factor": 0.50, "capacity_gw":  0.9, "marginal_cost": round(coal_srmc, 2)},
+        {"technology": "Gas CCGT",          "installed_gw": 12.4, "capacity_factor": 1.00, "capacity_gw": 12.4, "marginal_cost": round(gas_ccgt_srmc, 2)},
+        {"technology": "Oil",               "installed_gw":  3.0, "capacity_factor": 1.00, "capacity_gw":  3.0, "marginal_cost": 200.0},
     ]
 
     df = pd.DataFrame(technologies).sort_values("marginal_cost", ignore_index=True)
@@ -124,21 +127,24 @@ if __name__ == "__main__":
 
     df = get_merit_order(GAS_PRICE, COAL_PRICE, CARBON_PRICE)
 
-    print("=" * 62)
+    print("=" * 82)
     print("French Merit Order")
     print(f"Gas={GAS_PRICE} EUR/MWh | Coal={COAL_PRICE} EUR/t | Carbon={CARBON_PRICE} EUR/tCO2")
-    print("=" * 62)
-    print(f"  {'Technology':<14} {'Cap. (GW)':>9} {'SRMC (EUR/MWh)':>15} {'Cum. (GW)':>10}")
-    print(f"  {'-'*14} {'-'*9} {'-'*15} {'-'*10}")
+    print(f"Source: {CAPACITY_SOURCE}")
+    print("=" * 82)
+    print(f"  {'Technology':<22} {'Installed':>9} {'CF':>6} {'Available':>10} {'SRMC (EUR/MWh)':>15} {'Cum. (GW)':>10}")
+    print(f"  {'-'*22} {'-'*9} {'-'*6} {'-'*10} {'-'*15} {'-'*10}")
     for _, row in df.iterrows():
         print(
-            f"  {row['technology']:<14} {row['capacity_gw']:>9.0f} "
-            f"{row['marginal_cost']:>15.2f} {row['cumulative_capacity']:>10.0f}"
+            f"  {row['technology']:<22} {row['installed_gw']:>9.1f} "
+            f"{row['capacity_factor']:>6.0%} {row['capacity_gw']:>10.1f} "
+            f"{row['marginal_cost']:>15.2f} {row['cumulative_capacity']:>10.1f}"
         )
 
     marginal = get_marginal_technology(df, DEMAND_GW)
-    total_cap = df["capacity_gw"].sum()
-    print(f"\nDemand: {DEMAND_GW} GW  (total installed: {total_cap:.0f} GW)")
+    total_installed = df["installed_gw"].sum()
+    total_available = df["capacity_gw"].sum()
+    print(f"\nDemand: {DEMAND_GW} GW  (total installed: {total_installed:.0f} GW, total available: {total_available:.1f} GW)")
     print(f"Marginal technology : {marginal['technology']}")
     print(f"Marginal cost       : {marginal['marginal_cost']:.2f} EUR/MWh")
     print(f"Spare margin        : {marginal['margin_gw']:.1f} GW within this block")
