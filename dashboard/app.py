@@ -84,9 +84,19 @@ period_days = {"7 days": 7, "30 days": 30, "90 days": 90}[period_label]
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("Market assumptions")
-gas_price = st.sidebar.slider("Gas (EUR/MWh)", min_value=10, max_value=150, value=45)
+
+_ttf_df = load_commodity_df(90)
+_gas_default = int(round(_ttf_df["gas_ttf"].iloc[-1])) if not _ttf_df.empty and "gas_ttf" in _ttf_df.columns else 45
+_gas_default = max(10, min(150, _gas_default))  # clamp to slider range
+
+gas_price = st.sidebar.slider("Gas (EUR/MWh)", min_value=10, max_value=150, value=_gas_default)
+st.sidebar.caption("Default: last TTF closing price")
 coal_price_tonne = st.sidebar.slider("Coal (EUR/tonne)", min_value=50, max_value=300, value=110)
-carbon_price = st.sidebar.slider("Carbon EUA (EUR/tCO2)", min_value=10, max_value=120, value=65)
+_carbon_default = int(round(_ttf_df["carbon_eua"].iloc[-1])) if not _ttf_df.empty and "carbon_eua" in _ttf_df.columns else 65
+_carbon_default = max(10, min(120, _carbon_default))
+
+carbon_price = st.sidebar.slider("Carbon EUA (EUR/tCO2)", min_value=10, max_value=120, value=_carbon_default)
+st.sidebar.caption("Default: last EUA closing price")
 
 # ---------------------------------------------------------------------------
 # Header
@@ -290,11 +300,13 @@ st.header("Market Correlations")
 
 st.markdown(
     "Correlation analysis between French day-ahead power prices, TTF natural gas "
-    "(Yahoo Finance) and EUA carbon allowances (Yahoo Finance). Pearson correlation "
-    "computed on daily average prices over the selected period. "
-    "A high power/carbon correlation reflects the influence of carbon costs on thermal "
-    "generation marginal costs, while a low power/gas correlation in France reflects "
-    "the dominance of nuclear baseload in the French power mix."
+    "and EUA carbon allowances. "
+    "Note on data sources and methodology: power prices are computed as daily averages "
+    "of 15-minute ENTSO-E spot prices, while TTF and EUA prices are daily closing prices "
+    "from Yahoo Finance. Pearson correlation is computed on 90 trading days for statistical "
+    "significance. A high power/carbon correlation reflects the influence of carbon costs "
+    "on thermal generation marginal costs, while a low power/gas correlation in France "
+    "reflects the dominance of nuclear baseload in the French power mix."
 )
 
 with st.spinner("Loading commodity prices (Yahoo Finance)..."):
