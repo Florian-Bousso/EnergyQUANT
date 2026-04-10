@@ -16,6 +16,11 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from analysis.correlations import (
+    build_commodity_dataframe,
+    compute_correlation_matrix,
+    correlation_summary,
+)
 from analysis.risk import risk_summary
 from analysis.seasonality import (
     compute_hourly_profile,
@@ -47,6 +52,14 @@ def load_prices(days: int) -> pd.Series:
     start = end - timedelta(days=days)
     df = fetch_day_ahead_prices("FR", start, end)
     return df["price_eur_mwh"]
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def load_commodity_df(days: int) -> pd.DataFrame:
+    prices = load_prices(days)
+    end = datetime.now(timezone.utc).replace(tzinfo=None)
+    start = end - timedelta(days=days)
+    return build_commodity_dataframe(prices, start, end)
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -101,6 +114,7 @@ st.markdown(
       <a href="#day-ahead-spot-prices-france" style="{_btn}">Day-ahead Prices</a>
       <a href="#price-seasonality" style="{_btn}">Price Seasonality</a>
       <a href="#spread-analysis" style="{_btn}">Spread Analysis</a>
+      <a href="#market-correlations" style="{_btn}">Market Correlations</a>
       <a href="#risk-metrics" style="{_btn}">Risk Metrics</a>
       <a href="#price-forecast-j-1-to-j-7-prophet" style="{_btn}">Price Forecast</a>
     </div>
@@ -270,7 +284,81 @@ st.plotly_chart(fig_spreads, use_container_width=True)
 st.markdown("---")
 
 # ---------------------------------------------------------------------------
-# Section 3 : Risk metrics
+# Section 3 : Market correlations
+# ---------------------------------------------------------------------------
+st.header("Market Correlations")
+
+st.markdown(
+    "Correlation analysis between French day-ahead power prices, TTF natural gas "
+    "(Yahoo Finance) and EUA carbon allowances (Yahoo Finance). Pearson correlation "
+    "computed on daily average prices over the selected period. "
+    "A high power/carbon correlation reflects the influence of carbon costs on thermal "
+    "generation marginal costs, while a low power/gas correlation in France reflects "
+    "the dominance of nuclear baseload in the French power mix."
+)
+
+with st.spinner("Loading commodity prices (Yahoo Finance)..."):
+    # Charts: follow sidebar period for visual consistency
+    commodity_df = load_commodity_df(period_days)
+    # Correlations: always 90 days for statistical significance
+    commodity_df_90 = load_commodity_df(90)
+
+if commodity_df.empty:
+    st.warning("Commodity data unavailable for the selected period.")
+else:
+    # Correlations computed on 90-day window regardless of sidebar selection
+    corr_source = commodity_df_90 if not commodity_df_90.empty else commodity_df
+    corr_matrix = compute_correlation_matrix(corr_source)
+    corr_sum = correlation_summary(corr_matrix)
+
+    # Charts sliced to sidebar period (daily frequency, already in commodity_df)
+    _chart_layout = dict(margin=dict(t=40, b=40), height=280)
+
+    cc1, cc2, cc3 = st.columns(3)
+
+    with cc1:
+        fig_pow = go.Figure(go.Scatter(
+            x=commodity_df.index, y=commodity_df["power"],
+            mode="lines", line=dict(color="#1f77b4", width=1.5),
+            hovertemplate="%{x|%d/%m/%Y}<br>%{y:.1f} EUR/MWh<extra></extra>",
+        ))
+        fig_pow.update_layout(title="Power — FR Day-Ahead (EUR/MWh)",
+                              yaxis_title="EUR/MWh", **_chart_layout)
+        st.plotly_chart(fig_pow, use_container_width=True)
+
+    with cc2:
+        fig_gas = go.Figure(go.Scatter(
+            x=commodity_df.index, y=commodity_df["gas_ttf"],
+            mode="lines", line=dict(color="#ff7f0e", width=1.5),
+            hovertemplate="%{x|%d/%m/%Y}<br>%{y:.1f} EUR/MWh<extra></extra>",
+        ))
+        fig_gas.update_layout(title="Gas — TTF (EUR/MWh)",
+                              yaxis_title="EUR/MWh", **_chart_layout)
+        st.plotly_chart(fig_gas, use_container_width=True)
+
+    with cc3:
+        fig_co2 = go.Figure(go.Scatter(
+            x=commodity_df.index, y=commodity_df["carbon_eua"],
+            mode="lines", line=dict(color="#2ca02c", width=1.5),
+            hovertemplate="%{x|%d/%m/%Y}<br>%{y:.1f} EUR/tCO2<extra></extra>",
+        ))
+        fig_co2.update_layout(title="Carbon — EUA (EUR/tCO2)",
+                              yaxis_title="EUR/tCO2", **_chart_layout)
+        st.plotly_chart(fig_co2, use_container_width=True)
+
+    def _fmt_corr(val):
+        return f"{val:.3f}" if val is not None else "n/a"
+
+    mc1, mc2, mc3 = st.columns(3)
+    mc1.metric("Power / Gas (TTF)",    _fmt_corr(corr_sum["power_gas"]))
+    mc2.metric("Power / Carbon (EUA)", _fmt_corr(corr_sum["power_carbon"]))
+    mc3.metric("Gas / Carbon (EUA)",   _fmt_corr(corr_sum["gas_carbon"]))
+    st.caption("Correlations computed on 90 trading days for statistical significance.")
+
+st.markdown("---")
+
+# ---------------------------------------------------------------------------
+# Section 4 : Risk metrics
 # ---------------------------------------------------------------------------
 st.header("Risk metrics")
 
