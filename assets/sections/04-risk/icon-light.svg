@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <rect width="128" height="128" rx="22" fill="#f4f1e8"></rect>
+  
+  
+  <line x1="22" y1="92" x2="106" y2="92" stroke="#0d1117" stroke-width="2.5" stroke-linecap="round"></line>
+  
+  <path d="M 22 92 C 38 92, 46 36, 64 36 C 82 36, 90 92, 106 92" stroke="#0d1117" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"></path>
+  
+  <line x1="88" y1="28" x2="88" y2="98" stroke="#f5d547" stroke-width="5" stroke-linecap="round"></line>
+  
+  <polygon points="84,28 92,28 88,22" fill="#f5d547"></polygon>
+
+</svg>

@@ -6,6 +6,7 @@ and forecasts. Provides interactive charts, geographic and commodity filters,
 and real-time risk alerts.
 """
 
+import base64
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -124,33 +125,85 @@ st.sidebar.button("Reset to defaults", on_click=_reset_defaults)
 # ---------------------------------------------------------------------------
 # Header
 # ---------------------------------------------------------------------------
-st.title("EnergyQuant")
+_root = Path(__file__).resolve().parents[1]
+
+def _svg_html(path: Path, width: int, extra_style: str = "") -> str:
+    """Return an HTML img tag with the SVG embedded as a base64 data URI."""
+    data = base64.b64encode(path.read_bytes()).decode()
+    return (
+        f'<div style="background:none; padding:0; {extra_style}">'
+        f'<img src="data:image/svg+xml;base64,{data}" width="{width}">'
+        f'</div>'
+    )
+
+_icon_b64 = base64.b64encode((_root / "assets/01-lattice/eq-square-icon.svg").read_bytes()).decode()
+st.markdown(f"""
+<div style="display: flex; align-items: center;
+            justify-content: space-between;
+            width: 100%; padding: 16px 0 24px 0;">
+    <img src="data:image/svg+xml;base64,{_icon_b64}"
+         style="height: 100px; width: auto;">
+    <div style="text-align: center; flex: 1;">
+        <div style="font-family: Arial, sans-serif;
+                    font-weight: 800; font-size: 52px;
+                    letter-spacing: -0.6px; color: #0d1117;">
+            Energy<span style="color: #f5d547;">Q</span>uant
+        </div>
+        <div style="font-family: monospace; font-size: 13px;
+                    letter-spacing: 2.2px; color: #6b7280;">
+            QUANTITATIVE ENERGY ANALYTICS
+        </div>
+    </div>
+    <div style="width: 100px;"></div>
+</div>
+""", unsafe_allow_html=True)
 st.caption("Florian Bousso")
 st.markdown(
     "Quantitative analysis tool for the French electricity market. "
     "Real-time ENTSO-E day-ahead prices, spread analysis, "
     "risk metrics and price forecasting."
 )
+def _nav_icon(path: Path, size: int = 36) -> str:
+    data = base64.b64encode(path.read_bytes()).decode()
+    return f'<img src="data:image/svg+xml;base64,{data}" style="height:{size}px; width:{size}px;">'
+
+_ni = {
+    "candle":       _nav_icon(_root / "assets/06-candle/icon-light.svg"),
+    "seasonality":  _nav_icon(_root / "assets/sections/01-seasonality/icon-light.svg"),
+    "spread":       _nav_icon(_root / "assets/sections/02-spread/icon-light.svg"),
+    "correlations": _nav_icon(_root / "assets/sections/03-correlations/icon-light.svg"),
+    "merit":        _nav_icon(_root / "assets/02-merit-order/icon-light.svg"),
+    "risk":         _nav_icon(_root / "assets/sections/04-risk/icon-light.svg"),
+    "forecast":     _nav_icon(_root / "assets/sections/05-forecast/icon-light.svg"),
+}
+
 _btn = (
     "background-color: #f0f2f6;"
     "color: #262730;"
-    "padding: 8px 20px;"
-    "border-radius: 8px;"
+    "padding: 10px 16px;"
+    "border-radius: 10px;"
     "text-decoration: none;"
     "font-weight: 500;"
-    "font-size: 14px;"
+    "font-size: 13px;"
     "border: 1px solid #d0d3da;"
+    "display: flex;"
+    "flex-direction: column;"
+    "align-items: center;"
+    "gap: 6px;"
+    "min-width: 90px;"
+    "text-align: center;"
 )
+
 st.markdown(
     f"""
-    <div style="display: flex; gap: 12px; justify-content: center; margin: 10px 0;">
-      <a href="#day-ahead-spot-prices-france" style="{_btn}">Day-ahead Prices</a>
-      <a href="#price-seasonality" style="{_btn}">Price Seasonality</a>
-      <a href="#spread-analysis" style="{_btn}">Spread Analysis</a>
-      <a href="#market-correlations" style="{_btn}">Market Correlations</a>
-      <a href="#merit-order" style="{_btn}">Merit Order</a>
-      <a href="#risk-metrics" style="{_btn}">Risk Metrics</a>
-      <a href="#price-forecast-j-1-to-j-7-prophet" style="{_btn}">Price Forecast</a>
+    <div style="display: flex; gap: 10px; justify-content: center; margin: 10px 0;">
+      <a href="#day-ahead-spot-prices-france" style="{_btn}">{_ni['candle']}Day-ahead Prices</a>
+      <a href="#price-seasonality" style="{_btn}">{_ni['seasonality']}Price Seasonality</a>
+      <a href="#spread-analysis" style="{_btn}">{_ni['spread']}Spread Analysis</a>
+      <a href="#market-correlations" style="{_btn}">{_ni['correlations']}Market Correlations</a>
+      <a href="#merit-order" style="{_btn}">{_ni['merit']}Merit Order</a>
+      <a href="#risk-metrics" style="{_btn}">{_ni['risk']}Risk Metrics</a>
+      <a href="#price-forecast-j-1-to-j-7-prophet" style="{_btn}">{_ni['forecast']}Price Forecast</a>
     </div>
     """,
     unsafe_allow_html=True,
@@ -173,7 +226,11 @@ with st.spinner("Loading ENTSO-E data..."):
 # ---------------------------------------------------------------------------
 # Section 1 : Day-ahead spot prices
 # ---------------------------------------------------------------------------
-st.header("Day-ahead spot prices — France")
+_col_icon, _col_title = st.columns([0.05, 0.95])
+with _col_icon:
+    st.markdown(_svg_html(_root / "assets/06-candle/icon-light.svg", 45, "padding-top:12px"), unsafe_allow_html=True)
+with _col_title:
+    st.header("Day-ahead spot prices — France")
 
 st.markdown(
     "Day-ahead prices are set the day before for each delivery hour on the EPEX SPOT market. "
@@ -218,7 +275,11 @@ st.markdown("---")
 # ---------------------------------------------------------------------------
 # Section 2 : Price seasonality
 # ---------------------------------------------------------------------------
-st.header("Price Seasonality")
+_col_icon, _col_title = st.columns([0.05, 0.95])
+with _col_icon:
+    st.markdown(_svg_html(_root / "assets/sections/01-seasonality/icon-light.svg", 45, "padding-top:12px"), unsafe_allow_html=True)
+with _col_title:
+    st.header("Price Seasonality")
 
 st.markdown(
     "Electricity prices follow strong intraday and weekly patterns. "
@@ -288,7 +349,11 @@ st.markdown("---")
 # ---------------------------------------------------------------------------
 # Section 3 : Spread analysis
 # ---------------------------------------------------------------------------
-st.header("Spread analysis")
+_col_icon, _col_title = st.columns([0.05, 0.95])
+with _col_icon:
+    st.markdown(_svg_html(_root / "assets/sections/02-spread/icon-light.svg", 45, "padding-top:12px"), unsafe_allow_html=True)
+with _col_title:
+    st.header("Spread analysis")
 
 st.markdown(
     "Spreads measure the theoretical gross margin of different power plant types. "
@@ -336,7 +401,11 @@ st.markdown("---")
 # ---------------------------------------------------------------------------
 # Section 3 : Market correlations
 # ---------------------------------------------------------------------------
-st.header("Market Correlations")
+_col_icon, _col_title = st.columns([0.05, 0.95])
+with _col_icon:
+    st.markdown(_svg_html(_root / "assets/sections/03-correlations/icon-light.svg", 45, "padding-top:12px"), unsafe_allow_html=True)
+with _col_title:
+    st.header("Market Correlations")
 
 st.markdown(
     "Correlation analysis between French day-ahead power prices, TTF natural gas "
@@ -412,7 +481,11 @@ st.markdown("---")
 # ---------------------------------------------------------------------------
 # Section 4 : Merit order
 # ---------------------------------------------------------------------------
-st.header("Merit Order")
+_col_icon, _col_title = st.columns([0.05, 0.95])
+with _col_icon:
+    st.markdown(_svg_html(_root / "assets/02-merit-order/icon-light.svg", 45, "padding-top:12px"), unsafe_allow_html=True)
+with _col_title:
+    st.header("Merit Order")
 
 st.markdown(
     "The merit order ranks power plants by short-run marginal cost (SRMC). "
@@ -541,7 +614,11 @@ st.markdown("---")
 # ---------------------------------------------------------------------------
 # Section 5 : Risk metrics
 # ---------------------------------------------------------------------------
-st.header("Risk metrics")
+_col_icon, _col_title = st.columns([0.05, 0.95])
+with _col_icon:
+    st.markdown(_svg_html(_root / "assets/sections/04-risk/icon-light.svg", 45, "padding-top:12px"), unsafe_allow_html=True)
+with _col_title:
+    st.header("Risk metrics")
 
 st.markdown(
     "**Volatility (daily std)** — Standard deviation of daily average prices over the analysis "
@@ -590,7 +667,11 @@ st.markdown("---")
 # ---------------------------------------------------------------------------
 # Section 4 : Price forecast J+7
 # ---------------------------------------------------------------------------
-st.header("Price Forecast J+1 to J+7 (Prophet)")
+_col_icon, _col_title = st.columns([0.05, 0.95])
+with _col_icon:
+    st.markdown(_svg_html(_root / "assets/sections/05-forecast/icon-light.svg", 45, "padding-top:12px"), unsafe_allow_html=True)
+with _col_title:
+    st.header("Price Forecast J+1 to J+7 (Prophet)")
 
 st.markdown(
     "Forecasts generated by the Prophet model (Meta) trained on the last 90 days "

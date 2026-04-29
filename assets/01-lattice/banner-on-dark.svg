@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 120" width="880" height="120">
+  <rect x="20" y="30" width="60" height="60" rx="8" fill="#000000"></rect>
+  <text x="50" y="76" text-anchor="middle" font-family="Archivo, &#39;Helvetica Neue&#39;, Arial, sans-serif" font-weight="800" font-size="36" letter-spacing="-1.2" fill="#f4f1e8">E<tspan fill="#f5d547">Q</tspan></text>
+
+  <line x1="100" y1="40" x2="100" y2="80" stroke="#f4f1e8" stroke-opacity="0.18" stroke-width="1"></line>
+
+  <text x="118" y="66" font-family="Archivo, &#39;Helvetica Neue&#39;, Arial, sans-serif" font-weight="800" font-size="34" letter-spacing="-0.8" fill="#f4f1e8">Energy<tspan fill="#f5d547">Q</tspan>uant</text>
+
+  <text x="120" y="86" font-family="&#39;JetBrains Mono&#39;, ui-monospace, Menlo, monospace" font-weight="500" font-size="9" letter-spacing="2.4" fill="#9aa3b2">QUANTITATIVE ENERGY ANALYTICS</text>
+</svg>
