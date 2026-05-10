@@ -159,9 +159,16 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 st.caption("Florian Bousso")
 st.markdown(
-    "Quantitative analysis tool for the French electricity market. "
-    "Real-time ENTSO-E day-ahead prices, spread analysis, "
-    "risk metrics and price forecasting."
+    "<p style='font-size: 16px; line-height: 1.6; color: #444;'>"
+    "EnergyQuant is a quantitative analysis platform for the French electricity market. "
+    "It combines real-time day-ahead spot prices from the ENTSO-E API with financial "
+    "analytics including spark, dark and clean spark spread calculations, risk metrics "
+    "(volatility, VaR 95%, CVaR), and 7-day price forecasting using Meta's Prophet model. "
+    "The platform also features price seasonality analysis, cross-commodity correlation "
+    "with TTF gas and EUA carbon (Yahoo Finance), and an interactive French merit order "
+    "simulator based on RTE 2025 installed capacity data."
+    "</p>",
+    unsafe_allow_html=True,
 )
 def _nav_icon(path: Path, size: int = 36) -> str:
     data = base64.b64encode(path.read_bytes()).decode()
